@@ -25,21 +25,27 @@
 - [x] Folder structure (public + auth + admin routes)
 - [x] GitHub repo (private)
 - [x] Git initialized + first commit
-- [x] Context folder + CLAUDE.md
+- [x] Context folder + CLAUDE.md + all spec files
 - [x] Admin users created (1 of 4)
+- [x] Supabase grants fixed (authenticated + anon roles)
 
----
+### Feature 1 — Admin Players ✅
+- [x] Admin layout with sidebar navigation
+- [x] Admin players page — view all players
+- [x] Add new player form
+- [x] Edit player (name, phone, payment plan)
+- [x] Deactivate player (soft delete)
+- [x] 8 real players added to roster
 
 ## 🔄 In Progress
 
-### Context & Specs Setup
-- [ ] context/specs/00-overview.md
-- [ ] context/specs/01-auth.md
-- [ ] context/specs/02-queue.md
-- [ ] context/specs/03-team-generation.md
-- [ ] context/specs/04-payments.md
-- [ ] context/specs/05-stats-leaderboard.md
-- [ ] context/specs/06-ai-summary.md
+### Feature 2 — Queue (Public iPad Screen)
+- [ ] Queue page layout (iPad optimized)
+- [ ] Player grid — tap name to join queue
+- [ ] New player registration inline
+- [ ] Live queue display with positions
+- [ ] Supabase Realtime — queue updates instantly
+- [ ] Session status awareness (open/closed)
 
 ---
 
