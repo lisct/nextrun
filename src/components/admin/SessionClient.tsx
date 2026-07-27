@@ -32,7 +32,12 @@ export default function SessionClient({
   const playerMap = new Map(players.map((p) => [p.id, p]));
 
   const waitingQueue = queue.filter((e) => e.status === "waiting");
-  const canGenerateTeams = waitingQueue.length >= 8 && !currentGame;
+  const playingQueue = queue.filter((e) => e.status === "playing");
+  const isFirstGame = playingQueue.length === 0;
+  const canGenerateTeams =
+    !currentGame &&
+    ((isFirstGame && waitingQueue.length >= 8) ||
+      (!isFirstGame && waitingQueue.length >= 4));
 
   const avatarColors = [
     "bg-orange-950 text-orange-400",
@@ -110,16 +115,8 @@ export default function SessionClient({
       setCurrentGame(null);
 
       // Move losers to bottom of queue visually
-      const maxPos = Math.max(...queue.map((e) => e.position));
-      setQueue((prev) => {
-        const updated = prev.map((e) => {
-          if (loserIds.includes(e.player_id)) {
-            return { ...e, status: "waiting" as const };
-          }
-          return e;
-        });
-        return updated;
-      });
+      // Reload fresh data from server instead of updating stale local state
+      window.location.reload();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to mark winner");
     } finally {
@@ -287,7 +284,9 @@ export default function SessionClient({
                   <div className="text-center py-8 text-gray-500">
                     <p className="text-sm">
                       {waitingQueue.length < 8
-                        ? `Need ${8 - waitingQueue.length} more players in queue`
+                        ? isFirstGame
+                          ? `Need ${8 - waitingQueue.length} more players in queue`
+                          : `Need ${4 - waitingQueue.length} more players in queue`
                         : "No game in progress"}
                     </p>
                   </div>
@@ -313,53 +312,61 @@ export default function SessionClient({
               </div>
             ) : (
               <div className="space-y-2">
-                {queue.map((entry, index) => {
-                  const player = playerMap.get(entry.player_id);
-                  if (!player) return null;
-                  return (
-                    <div
-                      key={entry.id}
-                      className={cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-xl",
-                        entry.status === "playing"
-                          ? "bg-orange-950 border border-orange-800"
-                          : "bg-gray-800",
-                      )}
-                    >
+                {[...queue]
+                  .sort((a, b) => {
+                    if (a.status === "playing" && b.status !== "playing")
+                      return -1;
+                    if (a.status !== "playing" && b.status === "playing")
+                      return 1;
+                    return a.position - b.position;
+                  })
+                  .map((entry, index) => {
+                    const player = playerMap.get(entry.player_id);
+                    if (!player) return null;
+                    return (
                       <div
+                        key={entry.id}
                         className={cn(
-                          "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0",
+                          "flex items-center gap-3 px-3 py-2.5 rounded-xl",
                           entry.status === "playing"
-                            ? "bg-orange-500 text-white"
-                            : "bg-gray-700 text-gray-400",
+                            ? "bg-orange-950 border border-orange-800"
+                            : "bg-gray-800",
                         )}
                       >
-                        {entry.status === "playing" ? "▶" : index + 1}
+                        <div
+                          className={cn(
+                            "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0",
+                            entry.status === "playing"
+                              ? "bg-orange-500 text-white"
+                              : "bg-gray-700 text-gray-400",
+                          )}
+                        >
+                          {entry.status === "playing" ? "▶" : index + 1}
+                        </div>
+                        <div
+                          className={cn(
+                            "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0",
+                            getAvatarColor(player.name),
+                          )}
+                        >
+                          {getInitials(player.name)}
+                        </div>
+                        <span className="text-white text-sm flex-1">
+                          {player.name}
+                        </span>
+                        <span
+                          className={cn(
+                            "text-xs px-2 py-0.5 rounded-full",
+                            entry.status === "playing"
+                              ? "bg-orange-500 text-white"
+                              : "bg-gray-700 text-gray-400",
+                          )}
+                        >
+                          {entry.status === "playing" ? "Playing" : "Waiting"}
+                        </span>
                       </div>
-                      <div
-                        className={cn(
-                          "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0",
-                          getAvatarColor(player.name),
-                        )}
-                      >
-                        {getInitials(player.name)}
-                      </div>
-                      <span className="text-white text-sm flex-1">
-                        {player.name}
-                      </span>
-                      <span
-                        className={cn(
-                          "text-xs px-2 py-0.5 rounded-full",
-                          entry.status === "playing"
-                            ? "bg-orange-500 text-white"
-                            : "bg-gray-700 text-gray-400",
-                        )}
-                      >
-                        {entry.status === "playing" ? "Playing" : "Waiting"}
-                      </span>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
               </div>
             )}
           </div>

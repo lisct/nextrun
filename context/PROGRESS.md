@@ -10,43 +10,30 @@
 
 ## ✅ Completed
 
-### Scaffold & Infrastructure
-- [x] Next.js 16 + TypeScript + Tailwind CSS v4
-- [x] Supabase project created (East US - Virginia)
-- [x] Database schema — all tables + RLS policies
-- [x] Supabase Realtime enabled (queue_entries, games, sessions)
-- [x] Proxy (auth protection on /admin routes)
-- [x] TypeScript types (Player, Session, QueueEntry, Game, Payment)
-- [x] Supabase client (browser + server)
-- [x] Utility helpers (cn, formatDate, getInitials)
-- [x] Root layout + global CSS + brand colors
-- [x] Login page UI
-- [x] PWA manifest (installable on iPad)
-- [x] Folder structure (public + auth + admin routes)
-- [x] GitHub repo (private)
-- [x] Git initialized + first commit
-- [x] Context folder + CLAUDE.md + all spec files
-- [x] Admin users created (1 of 4)
-- [x] Supabase grants fixed (authenticated + anon roles)
+### Feature 2 — Queue (Public iPad Screen) ✅
+- [x] Queue page layout (iPad optimized)
+- [x] Player grid — tap name to join queue
+- [x] New player registration inline
+- [x] Live queue display with positions
+- [x] Playing players shown at top
+- [x] Losers go below waiting players correctly
+- [x] PIN-protected player removal from queue
+- [x] Session status awareness (open/closed/none)
 
-### Feature 1 — Admin Players ✅
-- [x] Admin layout with sidebar navigation
-- [x] Admin players page — view all players
-- [x] Add new player form
-- [x] Edit player (name, phone, payment plan)
-- [x] Deactivate player (soft delete)
-- [x] 8 real players added to roster
+### Feature 3 — Session Management ✅
+- [x] Open/close tonight's session
+- [x] Generate teams (first game: 8 players, subsequent: winners + 4 waiting)
+- [x] Display current teams on court
+- [x] Mark game winner (Team A / Team B)
+- [x] Winners stay on court as playing
+- [x] Losers auto-move to bottom of queue
+- [x] Queue ordering correct in database and UI
 
-## 🔄 In Progress
+## 🔄 Up Next
 
-### Feature 2 — Queue (Public iPad Screen)
-- [ ] Queue page layout (iPad optimized)
-- [ ] Player grid — tap name to join queue
-- [ ] New player registration inline
-- [ ] Live queue display with positions
-- [ ] Supabase Realtime — queue updates instantly
-- [ ] Session status awareness (open/closed)
-
+### Feature 4 — Payments
+### Feature 5 — Stats + Leaderboard
+### Feature 6 — AI Summary
 ---
 
 ## 📋 Up Next — Feature Development

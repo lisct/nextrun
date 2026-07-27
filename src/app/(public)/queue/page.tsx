@@ -1,11 +1,39 @@
-export default function QueuePage() {
+import { createClient } from "@/lib/supabase/server";
+import QueueClient from "@/components/queue/QueueClient";
+
+export default async function QueuePage() {
+  const supabase = await createClient();
+
+  const today = new Date().toISOString().split("T")[0];
+
+  // Get today's session
+  const { data: session } = await supabase
+    .from("sessions")
+    .select("*")
+    .eq("date", today)
+    .single();
+
+  // Get all active players
+  const { data: players } = await supabase
+    .from("players")
+    .select("*")
+    .eq("is_active", true)
+    .order("name", { ascending: true });
+
+  // Get queue for today's session
+  const { data: queue } = session
+    ? await supabase
+        .from("queue_entries")
+        .select("*, player:players(*)")
+        .eq("session_id", session.id)
+        .order("position", { ascending: true })
+    : { data: null };
+
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-      <div className="text-center">
-        <div className="text-6xl mb-4">🏀</div>
-        <h1 className="text-3xl font-bold text-white mb-2">NextRun</h1>
-        <p className="text-gray-400">Queue coming soon</p>
-      </div>
-    </div>
+    <QueueClient
+      session={session}
+      players={players ?? []}
+      initialQueue={queue ?? []}
+    />
   );
 }
