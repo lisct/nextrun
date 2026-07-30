@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Session, Player, QueueEntry, PaymentPlan } from "@/types";
 import { cn, getInitials } from "@/lib/utils";
+export const dynamic = "force-dynamic";
 import { createClient } from "@/lib/supabase/client";
 import {
   joinQueue,
@@ -37,46 +38,23 @@ export default function QueueClient({
   const [newPhone, setNewPhone] = useState("");
   const [newPlan, setNewPlan] = useState<PaymentPlan>("per_session");
 
-  const supabase = createClient();
-
-  // Realtime subscription
+  // Fast polling when no session — checks every 2 seconds
   useEffect(() => {
-    if (!session) return;
+    if (session) return;
 
-    const channel = supabase
-      .channel("queue-changes")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "queue_entries",
-          filter: `session_id=eq.${session.id}`,
-        },
-        () => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch("/api/session");
+        const { session: newSession } = await res.json();
+        if (newSession) {
           window.location.reload();
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "sessions",
-          filter: `id=eq.${session.id}`,
-        },
-        (payload) => {
-          const updated = payload.new as Session;
-          if (updated.status === "closed") {
-            window.location.reload();
-          }
-        },
-      )
-      .subscribe();
+        }
+      } catch {
+        // ignore fetch errors
+      }
+    }, 2000);
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => clearInterval(interval);
   }, [session]);
   const queuePlayerIds = new Set(queue.map((e) => e.player_id));
 

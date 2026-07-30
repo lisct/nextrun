@@ -91,13 +91,82 @@ export async function removePlayerFromQueue(
 ) {
   const supabase = await createClient();
 
-  const { error } = await supabase
+  // Check if player is currently playing
+  const { data: entry } = await supabase
+    .from("queue_entries")
+    .select("*")
+    .eq("session_id", sessionId)
+    .eq("player_id", playerId)
+    .single();
+
+  if (!entry) throw new Error("Player not found in queue");
+
+  const wasPlaying = entry.status === "playing";
+
+  // Remove the player from queue
+  const { error: deleteError } = await supabase
     .from("queue_entries")
     .delete()
     .eq("session_id", sessionId)
     .eq("player_id", playerId);
 
-  if (error) throw new Error(error.message);
+  if (deleteError) throw new Error(deleteError.message);
+
+  // If they were playing, promote next waiting player
+  if (wasPlaying) {
+    // Get next waiting player (#1 in queue)
+    const { data: nextPlayer } = await supabase
+      .from("queue_entries")
+      .select("*")
+      .eq("session_id", sessionId)
+      .eq("status", "waiting")
+      .order("position", { ascending: true })
+      .limit(1)
+      .single();
+
+    if (nextPlayer) {
+      // Promote them to playing
+      await supabase
+        .from("queue_entries")
+        .update({ status: "playing" })
+        .eq("id", nextPlayer.id);
+
+      // Update the current active game — replace removed player with next player
+      const { data: currentGame } = await supabase
+        .from("games")
+        .select("*")
+        .eq("session_id", sessionId)
+        .is("winner", null)
+        .single();
+
+      if (currentGame) {
+        // Find which team the removed player was on
+        const onTeamA = currentGame.team_a_ids.includes(playerId);
+        const onTeamB = currentGame.team_b_ids.includes(playerId);
+
+        if (onTeamA) {
+          const newTeamA = currentGame.team_a_ids
+            .filter((id: string) => id !== playerId)
+            .concat(nextPlayer.player_id);
+
+          await supabase
+            .from("games")
+            .update({ team_a_ids: newTeamA })
+            .eq("id", currentGame.id);
+        } else if (onTeamB) {
+          const newTeamB = currentGame.team_b_ids
+            .filter((id: string) => id !== playerId)
+            .concat(nextPlayer.player_id);
+
+          await supabase
+            .from("games")
+            .update({ team_b_ids: newTeamB })
+            .eq("id", currentGame.id);
+        }
+      }
+    }
+  }
 
   revalidatePath("/queue");
+  revalidatePath("/admin/session");
 }

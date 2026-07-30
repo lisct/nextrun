@@ -11,7 +11,10 @@ export default async function QueuePage() {
     .from("sessions")
     .select("*")
     .eq("date", today)
-    .single();
+    .eq("status", "open")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
   // Get all active players
   const { data: players } = await supabase

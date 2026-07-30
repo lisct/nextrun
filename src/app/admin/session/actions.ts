@@ -7,16 +7,6 @@ export async function openSession() {
   const supabase = await createClient();
 
   const today = new Date().toISOString().split("T")[0];
-
-  // Check if session already exists for today
-  const { data: existing } = await supabase
-    .from("sessions")
-    .select("*")
-    .eq("date", today)
-    .single();
-
-  if (existing) throw new Error("A session already exists for today");
-
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -34,6 +24,7 @@ export async function openSession() {
   if (error) throw new Error(error.message);
 
   revalidatePath("/admin/session");
+  revalidatePath("/queue");
   return data;
 }
 
@@ -191,6 +182,109 @@ export async function removeFromQueue(sessionId: string, playerId: string) {
     .eq("player_id", playerId);
 
   if (error) throw new Error(error.message);
+
+  revalidatePath("/admin/session");
+  revalidatePath("/queue");
+}
+
+export async function reopenSession(sessionId: string) {
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("sessions")
+    .update({ status: "open" })
+    .eq("id", sessionId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/admin/session");
+  revalidatePath("/queue");
+  return { error: null };
+}
+
+export async function startNewSession() {
+  const supabase = await createClient();
+
+  const today = new Date().toISOString().split("T")[0];
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // Close ALL existing sessions for today
+  await supabase
+    .from("sessions")
+    .update({ status: "closed" })
+    .eq("date", today);
+
+  // Create one fresh session
+  const { data, error } = await supabase
+    .from("sessions")
+    .insert({
+      date: today,
+      status: "open",
+      created_by: user?.id,
+    })
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/admin/session");
+  revalidatePath("/queue");
+  return data;
+}
+
+export async function swapPlayers(
+  sessionId: string,
+  playingPlayerId: string,
+  waitingPlayerId: string,
+) {
+  const supabase = await createClient();
+
+  // Get current active game
+  const { data: currentGame } = await supabase
+    .from("games")
+    .select("*")
+    .eq("session_id", sessionId)
+    .is("winner", null)
+    .single();
+
+  // Update queue — swap statuses
+  await supabase
+    .from("queue_entries")
+    .update({ status: "waiting" })
+    .eq("session_id", sessionId)
+    .eq("player_id", playingPlayerId);
+
+  await supabase
+    .from("queue_entries")
+    .update({ status: "playing" })
+    .eq("session_id", sessionId)
+    .eq("player_id", waitingPlayerId);
+
+  // Update game record if game in progress
+  if (currentGame) {
+    const onTeamA = currentGame.team_a_ids.includes(playingPlayerId);
+    const onTeamB = currentGame.team_b_ids.includes(playingPlayerId);
+
+    if (onTeamA) {
+      const newTeamA = currentGame.team_a_ids
+        .filter((id: string) => id !== playingPlayerId)
+        .concat(waitingPlayerId);
+      await supabase
+        .from("games")
+        .update({ team_a_ids: newTeamA })
+        .eq("id", currentGame.id);
+    } else if (onTeamB) {
+      const newTeamB = currentGame.team_b_ids
+        .filter((id: string) => id !== playingPlayerId)
+        .concat(waitingPlayerId);
+      await supabase
+        .from("games")
+        .update({ team_b_ids: newTeamB })
+        .eq("id", currentGame.id);
+    }
+  }
 
   revalidatePath("/admin/session");
   revalidatePath("/queue");

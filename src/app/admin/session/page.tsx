@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import SessionClient from "@/components/admin/SessionClient";
+export const dynamic = "force-dynamic";
 
 export default async function SessionPage() {
   const supabase = await createClient();
@@ -11,7 +12,9 @@ export default async function SessionPage() {
     .from("sessions")
     .select("*")
     .eq("date", today)
-    .single();
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
   // Get current game if session exists
   const { data: currentGame } = session
