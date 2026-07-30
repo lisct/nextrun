@@ -10,6 +10,14 @@
 
 ## ✅ Completed
 
+### Bug Fixes
+- [x] Duplicate sessions issue fixed
+- [x] Queue page auto-updates when session opens/closes
+- [x] Swap syncs correctly across both pages
+- [x] Remove player syncs correctly
+- [x] markWinner always fetches fresh game data from DB
+- [x] Hydration warning fixed (Grammarly)
+
 ### Feature 2 — Queue (Public iPad Screen) ✅
 - [x] Queue page layout (iPad optimized)
 - [x] Player grid — tap name to join queue
@@ -28,6 +36,7 @@
 - [x] Winners stay on court as playing
 - [x] Losers auto-move to bottom of queue
 - [x] Queue ordering correct in database and UI
+
 
 ## 🔄 Up Next
 
