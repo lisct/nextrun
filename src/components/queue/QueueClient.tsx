@@ -40,22 +40,70 @@ export default function QueueClient({
 
   // Fast polling when no session — checks every 2 seconds
   useEffect(() => {
-    if (session) return;
+    const supabaseClient = createClient();
 
+    // Realtime for queue and game changes
+    const channel = supabaseClient
+      .channel("all-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "sessions",
+        },
+        () => {
+          window.location.reload();
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "queue_entries",
+        },
+        () => {
+          window.location.reload();
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "games",
+        },
+        () => {
+          window.location.reload();
+        },
+      )
+      .subscribe((status) => {
+        console.log("Realtime status:", status);
+      });
+
+    // Fallback polling every 3 seconds
     const interval = setInterval(async () => {
       try {
         const res = await fetch("/api/session");
-        const { session: newSession } = await res.json();
-        if (newSession) {
+        const { session: latestSession } = await res.json();
+        if (latestSession?.status !== session?.status) {
+          window.location.reload();
+        }
+        if (!session && latestSession) {
           window.location.reload();
         }
       } catch {
-        // ignore fetch errors
+        // ignore
       }
-    }, 2000);
+    }, 3000);
 
-    return () => clearInterval(interval);
+    return () => {
+      supabaseClient.removeChannel(channel);
+      clearInterval(interval);
+    };
   }, [session]);
+
   const queuePlayerIds = new Set(queue.map((e) => e.player_id));
 
   const filtered = players.filter((p) =>
@@ -140,18 +188,18 @@ export default function QueueClient({
       return;
     }
 
+    setShowPinModal(false);
+
     try {
       await removePlayerFromQueue(session.id, playerToRemove.player_id);
-      setQueue((prev) =>
-        prev.filter((e) => e.player_id !== playerToRemove.player_id),
-      );
-      setShowPinModal(false);
-      setPlayerToRemove(null);
     } catch (err: unknown) {
       setPinError(
         err instanceof Error ? err.message : "Failed to remove player",
       );
+      return;
     }
+
+    window.location.reload();
   }
 
   // Session closed

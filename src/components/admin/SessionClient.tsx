@@ -42,15 +42,27 @@ export default function SessionClient({
   useEffect(() => {
     if (!initialSession) return;
 
-    const channel = supabase
-      .channel("session-queue-changes")
+    const supabaseClient = createClient();
+
+    const channel = supabaseClient
+      .channel("admin-all-changes")
       .on(
         "postgres_changes",
         {
-          event: "INSERT",
+          event: "*",
           schema: "public",
           table: "queue_entries",
-          filter: `session_id=eq.${initialSession.id}`,
+        },
+        () => {
+          window.location.reload();
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "games",
         },
         () => {
           window.location.reload();
@@ -61,28 +73,18 @@ export default function SessionClient({
         {
           event: "UPDATE",
           schema: "public",
-          table: "queue_entries",
-          filter: `session_id=eq.${initialSession.id}`,
+          table: "sessions",
         },
         () => {
           window.location.reload();
         },
       )
-      .on(
-        "postgres_changes",
-        {
-          event: "DELETE",
-          schema: "public",
-          table: "queue_entries",
-        },
-        () => {
-          window.location.reload();
-        },
-      )
-      .subscribe();
+      .subscribe((status) => {
+        console.log("Admin Realtime status:", status);
+      });
 
     return () => {
-      supabase.removeChannel(channel);
+      supabaseClient.removeChannel(channel);
     };
   }, [initialSession]);
 
@@ -236,23 +238,22 @@ export default function SessionClient({
     }
 
     setLoading(true);
+    setShowSwapModal(false);
+
     try {
       await swapPlayers(
         session.id,
         playerToSwap.player_id,
         swapTarget.player_id,
       );
-      setShowSwapModal(false);
-      setPlayerToSwap(null);
-      setSwapTarget(null);
-      window.location.reload();
     } catch (err: unknown) {
-      setSwapPinError(
-        err instanceof Error ? err.message : "Failed to swap players",
-      );
-    } finally {
+      setError(err instanceof Error ? err.message : "Failed to swap players");
       setLoading(false);
+      return;
     }
+
+    // Force reload to get fresh data
+    window.location.reload();
   }
 
   return (

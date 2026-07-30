@@ -124,10 +124,23 @@ export async function markWinner(
   gameId: string,
   sessionId: string,
   winner: "team_a" | "team_b",
-  winnerIds: string[],
-  loserIds: string[],
 ) {
   const supabase = await createClient();
+
+  // Always fetch fresh game data from DB — never trust client state
+  const { data: freshGame, error: fetchError } = await supabase
+    .from("games")
+    .select("*")
+    .eq("id", gameId)
+    .single();
+
+  if (fetchError || !freshGame) throw new Error("Game not found");
+
+  const winnerIds =
+    winner === "team_a" ? freshGame.team_a_ids : freshGame.team_b_ids;
+
+  const loserIds =
+    winner === "team_a" ? freshGame.team_b_ids : freshGame.team_a_ids;
 
   // Mark game winner
   const { error: gameError } = await supabase
@@ -149,7 +162,7 @@ export async function markWinner(
 
   const basePosition = (waitingEntries?.position ?? 0) + 1;
 
-  // Move losers to bottom — after all waiting players
+  // Move losers to bottom of queue as waiting
   for (let i = 0; i < loserIds.length; i++) {
     await supabase
       .from("queue_entries")
@@ -161,7 +174,7 @@ export async function markWinner(
       .eq("player_id", loserIds[i]);
   }
 
-  // Keep winners as playing — they stay on court
+  // Keep winners as playing
   await supabase
     .from("queue_entries")
     .update({ status: "playing" })

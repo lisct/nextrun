@@ -6,12 +6,11 @@ export default async function QueuePage() {
 
   const today = new Date().toISOString().split("T")[0];
 
-  // Get today's session
+  // Get today's most recent session (any status)
   const { data: session } = await supabase
     .from("sessions")
     .select("*")
     .eq("date", today)
-    .eq("status", "open")
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
