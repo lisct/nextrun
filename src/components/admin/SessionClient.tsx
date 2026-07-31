@@ -38,6 +38,13 @@ export default function SessionClient({
   const [swapTarget, setSwapTarget] = useState<QueueEntry | null>(null);
   const [gameFormat, setGameFormat] = useState<number>(4);
   const [showFormatPicker, setShowFormatPicker] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmConfig, setConfirmConfig] = useState<{
+    title: string;
+    message: string;
+    confirmLabel: string;
+    onConfirm: () => void;
+  } | null>(null);
 
   useEffect(() => {
     if (!initialSession) return;
@@ -111,6 +118,16 @@ export default function SessionClient({
     "bg-yellow-950 text-yellow-400",
   ];
 
+  function showConfirm(
+    title: string,
+    message: string,
+    confirmLabel: string,
+    onConfirm: () => void,
+  ) {
+    setConfirmConfig({ title, message, confirmLabel, onConfirm });
+    setShowConfirmModal(true);
+  }
+
   function getAvatarColor(name: string) {
     return avatarColors[name.charCodeAt(0) % avatarColors.length];
   }
@@ -130,16 +147,25 @@ export default function SessionClient({
 
   async function handleCloseSession() {
     if (!session) return;
-    if (!confirm("Close Tonight's session?")) return;
-    setLoading(true);
-    try {
-      await closeSession(session.id);
-      setSession((prev) => (prev ? { ...prev, status: "closed" } : null));
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to close session");
-    } finally {
-      setLoading(false);
-    }
+    showConfirm(
+      "Close Session",
+      "Are you sure you want to close tonight's session?",
+      "Close Session",
+      async () => {
+        setShowConfirmModal(false);
+        setLoading(true);
+        try {
+          await closeSession(session.id);
+          setSession((prev) => (prev ? { ...prev, status: "closed" } : null));
+        } catch (err: unknown) {
+          setError(
+            err instanceof Error ? err.message : "Failed to close session",
+          );
+        } finally {
+          setLoading(false);
+        }
+      },
+    );
   }
 
   async function handleReopenSession() {
@@ -162,32 +188,44 @@ export default function SessionClient({
   }
 
   async function confirmNewSession() {
-    setLoading(true);
-    setError(null);
     setShowFormatPicker(false);
 
-    try {
-      if (session) {
-        if (
-          !confirm(
-            "Start a brand new session? This will clear tonight's queue.",
-          )
-        ) {
-          setLoading(false);
-          return;
-        }
-        const newSession = await startNewSession(gameFormat);
-        setSession(newSession);
-        setQueue([]);
-        setCurrentGame(null);
-      } else {
+    if (session) {
+      showConfirm(
+        "Start New Session",
+        "This will close the current session and start fresh. Tonight's queue will be cleared.",
+        "Start New Session",
+        async () => {
+          setShowConfirmModal(false);
+          setLoading(true);
+          setError(null);
+          try {
+            const newSession = await startNewSession(gameFormat);
+            setSession(newSession);
+            setQueue([]);
+            setCurrentGame(null);
+          } catch (err: unknown) {
+            setError(
+              err instanceof Error
+                ? err.message
+                : "Failed to start new session",
+            );
+          } finally {
+            setLoading(false);
+          }
+        },
+      );
+    } else {
+      setLoading(true);
+      setError(null);
+      try {
         const newSession = await openSession(gameFormat);
         setSession(newSession);
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Failed to open session");
+      } finally {
+        setLoading(false);
       }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to start session");
-    } finally {
-      setLoading(false);
     }
   }
 
@@ -712,6 +750,34 @@ export default function SessionClient({
                 className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition"
               >
                 {loading ? "Starting..." : `Start ${gameFormat}v${gameFormat}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {showConfirmModal && confirmConfig && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-6 z-50">
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 w-full max-w-sm">
+            <h2 className="text-xl font-bold text-white mb-2">
+              {confirmConfig.title}
+            </h2>
+            <p className="text-gray-400 text-sm mb-6">
+              {confirmConfig.message}
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowConfirmModal(false)}
+                className="flex-1 bg-gray-800 hover:bg-gray-700 text-white font-medium py-3 rounded-xl transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmConfig.onConfirm}
+                className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 rounded-xl transition"
+              >
+                {confirmConfig.confirmLabel}
               </button>
             </div>
           </div>
