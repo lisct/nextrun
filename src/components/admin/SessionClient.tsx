@@ -93,11 +93,15 @@ export default function SessionClient({
   const waitingQueue = queue.filter((e) => e.status === "waiting");
   const playingQueue = queue.filter((e) => e.status === "playing");
   const isFirstGame = playingQueue.length === 0;
+  const teamSize = playingQueue.length;
+
   const canGenerateTeams =
     !currentGame &&
     session?.status === "open" &&
-    ((isFirstGame && waitingQueue.length >= 8) ||
-      (!isFirstGame && waitingQueue.length >= 4));
+    ((isFirstGame &&
+      waitingQueue.length >= 4 &&
+      waitingQueue.length % 2 === 0) ||
+      (!isFirstGame && waitingQueue.length >= teamSize));
 
   const avatarColors = [
     "bg-orange-950 text-orange-400",
@@ -434,7 +438,7 @@ export default function SessionClient({
                 {canGenerateTeams ? (
                   <button
                     onClick={handleGenerateTeams}
-                    disabled={loading || session.status === "closed"}
+                    disabled={loading}
                     className="w-full bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-semibold py-4 rounded-xl transition text-lg"
                   >
                     {loading ? "Generating..." : "Generate Teams"}
@@ -444,8 +448,12 @@ export default function SessionClient({
                     <p className="text-sm">
                       {waitingQueue.length < 8
                         ? isFirstGame
-                          ? `Need ${8 - waitingQueue.length} more players in queue`
-                          : `Need ${4 - waitingQueue.length} more players in queue`
+                          ? waitingQueue.length < 4
+                            ? `Need at least 4 players to start (have ${waitingQueue.length})`
+                            : waitingQueue.length % 2 !== 0
+                              ? `Need an even number of players (have ${waitingQueue.length})`
+                              : `Ready to generate ${waitingQueue.length / 2}v${waitingQueue.length / 2}`
+                          : `Need ${teamSize - waitingQueue.length} more players to challenge`
                         : "No game in progress"}
                     </p>
                   </div>

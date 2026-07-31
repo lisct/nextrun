@@ -64,33 +64,42 @@ export async function generateTeams(sessionId: string) {
   const winners = currentlyPlaying ?? [];
   const waitingPlayers = waiting ?? [];
 
-  // First game — need 8 waiting
-  if (winners.length === 0 && waitingPlayers.length < 8) {
-    throw new Error(
-      `Need at least 8 players in queue (have ${waitingPlayers.length})`,
-    );
-  }
-
-  // Subsequent games — winners (4) + next 4 from queue
-  if (winners.length > 0 && waitingPlayers.length < 4) {
-    throw new Error(
-      `Need at least 4 players waiting (have ${waitingPlayers.length})`,
-    );
+  if (winners.length === 0) {
+    // First game — need at least 4 waiting and even number
+    if (waitingPlayers.length < 4) {
+      throw new Error(
+        `Need at least 4 players in queue (have ${waitingPlayers.length})`,
+      );
+    }
+    if (waitingPlayers.length % 2 !== 0) {
+      throw new Error(
+        `Need an even number of players (have ${waitingPlayers.length})`,
+      );
+    }
+  } else {
+    // Subsequent games — winners stay + need enough waiting to fill other team
+    const teamSize = winners.length;
+    if (waitingPlayers.length < teamSize) {
+      throw new Error(
+        `Need at least ${teamSize} players waiting to challenge (have ${waitingPlayers.length})`,
+      );
+    }
   }
 
   let teamAIds: string[];
   let teamBIds: string[];
 
   if (winners.length === 0) {
-    // First game — shuffle all 8
-    const top8 = waitingPlayers.slice(0, 8);
-    const shuffled8 = [...top8].sort(() => Math.random() - 0.5);
-    teamAIds = shuffled8.slice(0, 4).map((e) => e.player_id);
-    teamBIds = shuffled8.slice(4, 8).map((e) => e.player_id);
+    // First game — take all available waiting players, split evenly
+    const half = Math.floor(waitingPlayers.length / 2);
+    const shuffled = [...waitingPlayers].sort(() => Math.random() - 0.5);
+    teamAIds = shuffled.slice(0, half).map((e) => e.player_id);
+    teamBIds = shuffled.slice(half, half * 2).map((e) => e.player_id);
   } else {
-    // Winners vs next 4 from queue
+    // Winners vs next N from queue (same team size)
+    const teamSize = winners.length;
     teamAIds = winners.map((e) => e.player_id);
-    teamBIds = waitingPlayers.slice(0, 4).map((e) => e.player_id);
+    teamBIds = waitingPlayers.slice(0, teamSize).map((e) => e.player_id);
   }
 
   // Create game record
@@ -107,7 +116,7 @@ export async function generateTeams(sessionId: string) {
 
   if (gameError) throw new Error(gameError.message);
 
-  // Mark all playing players as playing
+  // Mark all playing players
   const allPlayingIds = [...teamAIds, ...teamBIds];
   await supabase
     .from("queue_entries")
