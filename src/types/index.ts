@@ -24,6 +24,7 @@ export interface Session {
   ai_summary: string | null;
   created_by: string | null;
   created_at: string;
+  game_format: number; // players per team: 2, 3, 4, 5
 }
 
 export interface QueueEntry {

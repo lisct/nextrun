@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
-export async function openSession() {
+export async function openSession(gameFormat: number = 4) {
   const supabase = await createClient();
 
   const today = new Date().toISOString().split("T")[0];
@@ -17,6 +17,7 @@ export async function openSession() {
       date: today,
       status: "open",
       created_by: user?.id,
+      game_format: gameFormat,
     })
     .select()
     .single();
@@ -44,6 +45,16 @@ export async function closeSession(sessionId: string) {
 export async function generateTeams(sessionId: string) {
   const supabase = await createClient();
 
+  // Get session to know game format
+  const { data: session } = await supabase
+    .from("sessions")
+    .select("game_format")
+    .eq("id", sessionId)
+    .single();
+
+  const teamSize = session?.game_format ?? 4;
+  const totalNeeded = teamSize * 2;
+
   // Get current winners (staying on court)
   const { data: currentlyPlaying } = await supabase
     .from("queue_entries")
@@ -65,23 +76,17 @@ export async function generateTeams(sessionId: string) {
   const waitingPlayers = waiting ?? [];
 
   if (winners.length === 0) {
-    // First game — need at least 4 waiting and even number
-    if (waitingPlayers.length < 4) {
+    // First game — need full teams
+    if (waitingPlayers.length < totalNeeded) {
       throw new Error(
-        `Need at least 4 players in queue (have ${waitingPlayers.length})`,
-      );
-    }
-    if (waitingPlayers.length % 2 !== 0) {
-      throw new Error(
-        `Need an even number of players (have ${waitingPlayers.length})`,
+        `Need ${totalNeeded} players for ${teamSize}v${teamSize} (have ${waitingPlayers.length})`,
       );
     }
   } else {
-    // Subsequent games — winners stay + need enough waiting to fill other team
-    const teamSize = winners.length;
+    // Subsequent games — need enough to fill challenger team
     if (waitingPlayers.length < teamSize) {
       throw new Error(
-        `Need at least ${teamSize} players waiting to challenge (have ${waitingPlayers.length})`,
+        `Need ${teamSize} players to challenge (have ${waitingPlayers.length})`,
       );
     }
   }
@@ -90,19 +95,16 @@ export async function generateTeams(sessionId: string) {
   let teamBIds: string[];
 
   if (winners.length === 0) {
-    // First game — take all available waiting players, split evenly
-    const half = Math.floor(waitingPlayers.length / 2);
-    const shuffled = [...waitingPlayers].sort(() => Math.random() - 0.5);
-    teamAIds = shuffled.slice(0, half).map((e) => e.player_id);
-    teamBIds = shuffled.slice(half, half * 2).map((e) => e.player_id);
+    const shuffled = [...waitingPlayers]
+      .slice(0, totalNeeded)
+      .sort(() => Math.random() - 0.5);
+    teamAIds = shuffled.slice(0, teamSize).map((e) => e.player_id);
+    teamBIds = shuffled.slice(teamSize).map((e) => e.player_id);
   } else {
-    // Winners vs next N from queue (same team size)
-    const teamSize = winners.length;
     teamAIds = winners.map((e) => e.player_id);
     teamBIds = waitingPlayers.slice(0, teamSize).map((e) => e.player_id);
   }
 
-  // Create game record
   const { data: game, error: gameError } = await supabase
     .from("games")
     .insert({
@@ -116,7 +118,6 @@ export async function generateTeams(sessionId: string) {
 
   if (gameError) throw new Error(gameError.message);
 
-  // Mark all playing players
   const allPlayingIds = [...teamAIds, ...teamBIds];
   await supabase
     .from("queue_entries")
@@ -224,7 +225,7 @@ export async function reopenSession(sessionId: string) {
   return { error: null };
 }
 
-export async function startNewSession() {
+export async function startNewSession(gameFormat: number = 4) {
   const supabase = await createClient();
 
   const today = new Date().toISOString().split("T")[0];
@@ -232,19 +233,18 @@ export async function startNewSession() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Close ALL existing sessions for today
   await supabase
     .from("sessions")
     .update({ status: "closed" })
     .eq("date", today);
 
-  // Create one fresh session
   const { data, error } = await supabase
     .from("sessions")
     .insert({
       date: today,
       status: "open",
       created_by: user?.id,
+      game_format: gameFormat,
     })
     .select()
     .single();

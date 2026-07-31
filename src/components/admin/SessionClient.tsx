@@ -36,6 +36,8 @@ export default function SessionClient({
   const [swapPinError, setSwapPinError] = useState<string | null>(null);
   const [playerToSwap, setPlayerToSwap] = useState<QueueEntry | null>(null);
   const [swapTarget, setSwapTarget] = useState<QueueEntry | null>(null);
+  const [gameFormat, setGameFormat] = useState<number>(4);
+  const [showFormatPicker, setShowFormatPicker] = useState(false);
 
   useEffect(() => {
     if (!initialSession) return;
@@ -93,14 +95,13 @@ export default function SessionClient({
   const isFirstGame = playingQueue.length === 0;
   const teamSize = playingQueue.length;
 
+  const sessionFormat = session?.game_format ?? 4;
+  const totalNeeded = sessionFormat * 2;
   const canGenerateTeams =
     !currentGame &&
     session?.status === "open" &&
-    ((isFirstGame &&
-      waitingQueue.length >= 4 &&
-      waitingQueue.length % 2 === 0) ||
-      (!isFirstGame && waitingQueue.length >= teamSize));
-
+    ((isFirstGame && waitingQueue.length >= totalNeeded) ||
+      (!isFirstGame && waitingQueue.length >= sessionFormat));
   const avatarColors = [
     "bg-orange-950 text-orange-400",
     "bg-blue-950 text-blue-400",
@@ -118,7 +119,7 @@ export default function SessionClient({
     setLoading(true);
     setError(null);
     try {
-      const newSession = await openSession();
+      const newSession = await openSession(gameFormat);
       setSession(newSession);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to open session");
@@ -129,7 +130,7 @@ export default function SessionClient({
 
   async function handleCloseSession() {
     if (!session) return;
-    if (!confirm("Close Tonight&apos;s session?")) return;
+    if (!confirm("Close Tonight's session?")) return;
     setLoading(true);
     try {
       await closeSession(session.id);
@@ -157,23 +158,34 @@ export default function SessionClient({
   }
 
   async function handleNewSession() {
-    if (
-      !confirm(
-        "Start a brand new session? This will clear Tonight&apos;s queue.",
-      )
-    )
-      return;
+    setShowFormatPicker(true);
+  }
+
+  async function confirmNewSession() {
     setLoading(true);
     setError(null);
+    setShowFormatPicker(false);
+
     try {
-      const newSession = await startNewSession();
-      setSession(newSession);
-      setQueue([]);
-      setCurrentGame(null);
+      if (session) {
+        if (
+          !confirm(
+            "Start a brand new session? This will clear tonight's queue.",
+          )
+        ) {
+          setLoading(false);
+          return;
+        }
+        const newSession = await startNewSession(gameFormat);
+        setSession(newSession);
+        setQueue([]);
+        setCurrentGame(null);
+      } else {
+        const newSession = await openSession(gameFormat);
+        setSession(newSession);
+      }
     } catch (err: unknown) {
-      setError(
-        err instanceof Error ? err.message : "Failed to start new session",
-      );
+      setError(err instanceof Error ? err.message : "Failed to start session");
     } finally {
       setLoading(false);
     }
@@ -265,6 +277,11 @@ export default function SessionClient({
           <h1 className="text-2xl font-bold text-white">
             Tonight&apos;s Session
           </h1>
+          {session && (
+            <span className="text-sm bg-orange-950 text-orange-400 px-3 py-1 rounded-full border border-orange-800 mt-1 inline-block">
+              {session.game_format}v{session.game_format}
+            </span>
+          )}
           <p className="text-gray-400 text-sm mt-0.5">
             {new Date().toLocaleDateString("en-US", {
               weekday: "long",
@@ -277,11 +294,11 @@ export default function SessionClient({
         {/* Session controls */}
         {!session && (
           <button
-            onClick={handleOpenSession}
+            onClick={() => setShowFormatPicker(true)}
             disabled={loading}
             className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-semibold px-6 py-3 rounded-xl transition"
           >
-            {loading ? "Opening..." : "Open Tonight&apos;s Session"}
+            {loading ? "Opening..." : "Open Tonight's Session"}
           </button>
         )}
 
@@ -650,6 +667,51 @@ export default function SessionClient({
                 className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition"
               >
                 {loading ? "Swapping..." : "Confirm Swap"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Format Picker Modal */}
+      {showFormatPicker && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-6 z-50">
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 w-full max-w-sm">
+            <h2 className="text-xl font-bold text-white mb-2">New Session</h2>
+            <p className="text-gray-400 text-sm mb-6">
+              Select the game format for tonight
+            </p>
+
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              {[2, 3, 4, 5].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setGameFormat(n)}
+                  className={cn(
+                    "py-4 rounded-xl text-lg font-bold border transition",
+                    gameFormat === n
+                      ? "bg-orange-500 border-orange-500 text-white"
+                      : "bg-gray-800 border-gray-700 text-gray-400 hover:text-white hover:border-gray-600",
+                  )}
+                >
+                  {n}v{n}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowFormatPicker(false)}
+                className="flex-1 bg-gray-800 hover:bg-gray-700 text-white font-medium py-3 rounded-xl transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmNewSession}
+                disabled={loading}
+                className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition"
+              >
+                {loading ? "Starting..." : `Start ${gameFormat}v${gameFormat}`}
               </button>
             </div>
           </div>
