@@ -40,7 +40,7 @@ src/
 │   │   ├── queue/            → main screen, players tap to join
 │   │   └── leaderboard/      → standings anyone can view
 │   └── admin/                → protected, admin only
-│       ├── session/          → manage tonight's game
+│       ├── session/          → manage Tonight&apos;s game
 │       ├── payments/         → payment tracking
 │       └── players/          → manage player roster
 ├── components/
@@ -62,7 +62,7 @@ context/
 ## Database tables
 - players — registered players, payment plan
 - sessions — each Friday night session
-- queue_entries — who's in tonight's queue and their position
+- queue_entries — who's in Tonight&apos;s queue and their position
 - games — each game played, team arrays, winner
 - payments — payment records per player per session or month
 - player_stats — VIEW computed from games table

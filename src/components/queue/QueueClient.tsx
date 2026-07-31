@@ -208,9 +208,9 @@ export default function QueueClient({
       <div className="min-h-screen bg-gray-950 flex items-center justify-center p-8">
         <div className="text-center">
           <div className="text-6xl mb-4">🏀</div>
-          <h1 className="text-3xl font-bold text-white mb-2">That's a wrap!</h1>
+          <h1 className="text-3xl font-bold text-white mb-2">That&apos;s a wrap!</h1>
           <p className="text-gray-400">
-            Tonight's session has ended. See you next Friday!
+            Tonight&apos;s session has ended. See you next Friday!
           </p>
         </div>
       </div>
@@ -225,7 +225,7 @@ export default function QueueClient({
           <div className="text-6xl mb-4">🏀</div>
           <h1 className="text-3xl font-bold text-white mb-2">NextRun</h1>
           <p className="text-gray-400">
-            Waiting for tonight's session to open...
+            Waiting for Tonight&apos;s session to open...
           </p>
         </div>
       </div>
@@ -290,7 +290,7 @@ export default function QueueClient({
                   >
                     <div
                       className={cn(
-                        "w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0",
+                        "w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold shrink-0",
                         inQueue
                           ? "bg-green-900 text-green-400"
                           : getAvatarColor(player.name),
@@ -328,7 +328,7 @@ export default function QueueClient({
                 onClick={() => setShowNewPlayer(true)}
                 className="flex items-center gap-3 p-4 rounded-2xl border border-dashed border-gray-700 hover:border-orange-500 text-gray-500 hover:text-orange-400 transition active:scale-95"
               >
-                <div className="w-12 h-12 rounded-full bg-gray-800 flex items-center justify-center text-2xl flex-shrink-0">
+                <div className="w-12 h-12 rounded-full bg-gray-800 flex items-center justify-center text-2xl shrink-0">
                   +
                 </div>
                 <div>
@@ -351,7 +351,7 @@ export default function QueueClient({
           <div className="p-4 border-b border-gray-800">
             <div className="flex items-center justify-between">
               <h2 className="text-white font-semibold text-lg">
-                Tonight's Queue
+                Tonight&apos;s Queue
               </h2>
               <span className="text-gray-400 text-sm">
                 {queue.filter((e) => e.status === "waiting").length} waiting
@@ -375,7 +375,7 @@ export default function QueueClient({
                       return 1;
                     return a.position - b.position;
                   })
-                  .map((entry, index) => {
+                  .map((entry) => {
                     const player = entry.player as Player;
                     if (!player) return null;
                     const waitingIndex = [...queue]
@@ -396,7 +396,7 @@ export default function QueueClient({
                         {/* Position */}
                         <div
                           className={cn(
-                            "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0",
+                            "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0",
                             entry.status === "playing"
                               ? "bg-orange-500 text-white"
                               : "bg-gray-800 text-gray-400",
@@ -408,7 +408,7 @@ export default function QueueClient({
                         {/* Avatar */}
                         <div
                           className={cn(
-                            "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0",
+                            "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0",
                             entry.status === "playing"
                               ? "bg-orange-900 text-orange-300"
                               : getAvatarColor(player.name),

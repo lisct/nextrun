@@ -13,7 +13,7 @@ no record of who's winning or losing over time. NextRun fixes all of that.
 
 ### Before the game
 1. Admin opens the app on the iPad at the court
-2. Admin logs in and opens tonight's session
+2. Admin logs in and opens Tonight&apos;s session
 3. iPad stays on the queue screen all night
 
 ### During the game

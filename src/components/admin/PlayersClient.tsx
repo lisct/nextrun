@@ -156,7 +156,7 @@ export default function PlayersClient({ initialPlayers }: PlayersClientProps) {
               {/* Avatar */}
               <div
                 className={cn(
-                  "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0",
+                  "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0",
                   getAvatarColor(player.name),
                 )}
               >

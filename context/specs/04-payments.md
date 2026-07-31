@@ -16,7 +16,7 @@ Two tabs:
 2. History — per player payment history
 
 ### Tonight tab
-Shows all players who were in tonight's queue.
+Shows all players who were in Tonight&apos;s queue.
 Each row:
 - Player avatar + name
 - Payment plan badge (monthly / per session)
@@ -34,7 +34,7 @@ Each row:
 ### Mark payment flow
 Per session player:
 - Admin taps player row → toggles paid/unpaid
-- Creates/updates payment record for tonight's session
+- Creates/updates payment record for Tonight&apos;s session
 
 Monthly player:
 - Admin taps player row → marks month as paid

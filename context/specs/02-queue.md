@@ -40,9 +40,9 @@ Each queue entry shows:
 - Status badge (waiting / playing)
 
 ### Session states
-- No session open → show "Waiting for admin to open tonight's session"
+- No session open → show "Waiting for admin to open Tonight&apos;s session"
 - Session open → show queue and player list
-- Session closed → show "Tonight's session has ended. See you next Friday!"
+- Session closed → show "Tonight&apos;s session has ended. See you next Friday!"
 
 ## Queue logic
 - Position is assigned by joined_at timestamp

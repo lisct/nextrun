@@ -8,12 +8,12 @@ Admin takes the top 8 players from the queue and splits them into
 
 ### Layout
 Three sections:
-1. Session controls (open/close tonight's session)
+1. Session controls (open/close Tonight&apos;s session)
 2. Current game (teams on court + mark winner)
 3. Queue management (view queue, generate next teams)
 
 ### Open session
-- Button: "Open Tonight's Session"
+- Button: "Open Tonight&apos;s Session"
 - Creates a new session record with today's date
 - Sets status to 'open'
 - Only one session per day allowed
@@ -41,7 +41,7 @@ Tapping winner:
 - Shows how many are waiting
 
 ### Close session
-- Button: "Close Tonight's Session"
+- Button: "Close Tonight&apos;s Session"
 - Sets session status to 'closed'
 - Triggers AI summary generation
 - Queue becomes inactive

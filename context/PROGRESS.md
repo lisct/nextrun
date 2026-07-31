@@ -29,7 +29,7 @@
 - [x] Session status awareness (open/closed/none)
 
 ### Feature 3 — Session Management ✅
-- [x] Open/close tonight's session
+- [x] Open/close Tonight&apos;s session
 - [x] Generate teams (first game: 8 players, subsequent: winners + 4 waiting)
 - [x] Display current teams on court
 - [x] Mark game winner (Team A / Team B)
@@ -75,7 +75,7 @@
 
 ### Week 4 — Payments
 - [ ] Admin payments page layout
-- [ ] Tonight's payment status per player
+- [ ] Tonight&apos;s payment status per player
 - [ ] Mark paid / unpaid toggle
 - [ ] Monthly vs per-session plan display
 - [ ] Payment history per player

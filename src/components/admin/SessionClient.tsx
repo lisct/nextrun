@@ -37,8 +37,6 @@ export default function SessionClient({
   const [playerToSwap, setPlayerToSwap] = useState<QueueEntry | null>(null);
   const [swapTarget, setSwapTarget] = useState<QueueEntry | null>(null);
 
-  const supabase = createClient();
-
   useEffect(() => {
     if (!initialSession) return;
 
@@ -131,7 +129,7 @@ export default function SessionClient({
 
   async function handleCloseSession() {
     if (!session) return;
-    if (!confirm("Close tonight's session?")) return;
+    if (!confirm("Close Tonight&apos;s session?")) return;
     setLoading(true);
     try {
       await closeSession(session.id);
@@ -159,7 +157,11 @@ export default function SessionClient({
   }
 
   async function handleNewSession() {
-    if (!confirm("Start a brand new session? This will clear tonight's queue."))
+    if (
+      !confirm(
+        "Start a brand new session? This will clear Tonight&apos;s queue.",
+      )
+    )
       return;
     setLoading(true);
     setError(null);
@@ -203,13 +205,8 @@ export default function SessionClient({
     setLoading(true);
     setError(null);
 
-    const winnerIds =
-      winner === "team_a" ? currentGame.team_a_ids : currentGame.team_b_ids;
-    const loserIds =
-      winner === "team_a" ? currentGame.team_b_ids : currentGame.team_a_ids;
-
     try {
-      await markWinner(currentGame.id, session.id, winner, winnerIds, loserIds);
+      await markWinner(currentGame.id, session.id, winner);
       setCurrentGame(null);
 
       // Move losers to bottom of queue visually
@@ -265,7 +262,9 @@ export default function SessionClient({
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-white">Tonight's Session</h1>
+          <h1 className="text-2xl font-bold text-white">
+            Tonight&apos;s Session
+          </h1>
           <p className="text-gray-400 text-sm mt-0.5">
             {new Date().toLocaleDateString("en-US", {
               weekday: "long",
@@ -282,7 +281,7 @@ export default function SessionClient({
             disabled={loading}
             className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-semibold px-6 py-3 rounded-xl transition"
           >
-            {loading ? "Opening..." : "Open Tonight's Session"}
+            {loading ? "Opening..." : "Open Tonight&apos;s Session"}
           </button>
         )}
 
@@ -313,7 +312,7 @@ export default function SessionClient({
       {!session && (
         <div className="text-center py-24 text-gray-500">
           <div className="text-5xl mb-4">🏀</div>
-          <p className="text-lg">Open tonight's session to get started</p>
+          <p className="text-lg">Open Tonight&apos;s session to get started</p>
         </div>
       )}
 
@@ -502,7 +501,7 @@ export default function SessionClient({
                       >
                         <div
                           className={cn(
-                            "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0",
+                            "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
                             entry.status === "playing"
                               ? "bg-orange-500 text-white"
                               : "bg-gray-700 text-gray-400",
@@ -512,7 +511,7 @@ export default function SessionClient({
                         </div>
                         <div
                           className={cn(
-                            "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0",
+                            "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
                             getAvatarColor(player.name),
                           )}
                         >
@@ -587,7 +586,7 @@ export default function SessionClient({
                     >
                       <div
                         className={cn(
-                          "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0",
+                          "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
                           getAvatarColor(player.name),
                         )}
                       >

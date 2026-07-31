@@ -8,10 +8,10 @@ database view. No manual stat entry needed.
 Public — no login. Shows on iPad between games.
 
 ### Layout
-- Header with NextRun logo + tonight's date
+- Header with NextRun logo + Tonight&apos;s date
 - Filter bar: This month / All time / Last 4 Fridays
 - Ranked player list
-- Bottom: tonight's session summary (games played, players attended)
+- Bottom: Tonight&apos;s session summary (games played, players attended)
 
 ### Player row
 - Rank number (1st, 2nd, 3rd with medal colors)
