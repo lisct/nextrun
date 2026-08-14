@@ -141,19 +141,6 @@ export default function SessionClient({
     return avatarColors[name.charCodeAt(0) % avatarColors.length];
   }
 
-  async function handleOpenSession() {
-    setLoading(true);
-    setError(null);
-    try {
-      const newSession = await openSession(gameFormat);
-      setSession(newSession);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to open session");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   async function handleCloseSession() {
     if (!session) return;
     showConfirm(
@@ -507,7 +494,7 @@ export default function SessionClient({
                         <div key={id} className="flex items-center gap-2 mb-2">
                           <div
                             className={cn(
-                              "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0",
+                              "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
                               getAvatarColor(player.name),
                             )}
                           >
@@ -887,7 +874,7 @@ export default function SessionClient({
                   >
                     <div
                       className={cn(
-                        "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0",
+                        "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
                         getAvatarColor(player.name),
                       )}
                     >
