@@ -311,3 +311,43 @@ export async function swapPlayers(
   revalidatePath("/admin/session");
   revalidatePath("/queue");
 }
+
+export async function swapTeamPlayers(
+  gameId: string,
+  sessionId: string,
+  teamAPlayerId: string,
+  teamBPlayerId: string,
+) {
+  const supabase = await createClient();
+
+  // Get fresh game data
+  const { data: game, error } = await supabase
+    .from("games")
+    .select("*")
+    .eq("id", gameId)
+    .single();
+
+  if (error || !game) throw new Error("Game not found");
+
+  // Swap players between teams
+  const newTeamA = game.team_a_ids
+    .filter((id: string) => id !== teamAPlayerId)
+    .concat(teamBPlayerId);
+
+  const newTeamB = game.team_b_ids
+    .filter((id: string) => id !== teamBPlayerId)
+    .concat(teamAPlayerId);
+
+  const { error: updateError } = await supabase
+    .from("games")
+    .update({
+      team_a_ids: newTeamA,
+      team_b_ids: newTeamB,
+    })
+    .eq("id", gameId);
+
+  if (updateError) throw new Error(updateError.message);
+
+  revalidatePath("/admin/session");
+  revalidatePath("/queue");
+}

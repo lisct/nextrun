@@ -12,6 +12,7 @@ import {
   reopenSession,
   startNewSession,
   swapPlayers,
+  swapTeamPlayers,
 } from "@/app/admin/session/actions";
 interface SessionClientProps {
   initialSession: Session | null;
@@ -45,6 +46,14 @@ export default function SessionClient({
     confirmLabel: string;
     onConfirm: () => void;
   } | null>(null);
+  const [showTeamSwapModal, setShowTeamSwapModal] = useState(false);
+  const [teamSwapPin, setTeamSwapPin] = useState("");
+  const [teamSwapPinError, setTeamSwapPinError] = useState<string | null>(null);
+  const [teamSwapSource, setTeamSwapSource] = useState<{
+    playerId: string;
+    team: "a" | "b";
+  } | null>(null);
+  const [teamSwapTarget, setTeamSwapTarget] = useState<string | null>(null);
 
   useEffect(() => {
     if (!initialSession) return;
@@ -307,6 +316,49 @@ export default function SessionClient({
     window.location.reload();
   }
 
+  function initiateTeamSwap(playerId: string, team: "a" | "b") {
+    setTeamSwapSource({ playerId, team });
+    setTeamSwapTarget(null);
+    setTeamSwapPin("");
+    setTeamSwapPinError(null);
+    setShowTeamSwapModal(true);
+  }
+
+  async function handleTeamSwap() {
+    if (!session || !currentGame || !teamSwapSource || !teamSwapTarget) return;
+
+    const correctPin = process.env.NEXT_PUBLIC_ADMIN_PIN ?? "1234";
+
+    if (teamSwapPin !== correctPin) {
+      setTeamSwapPinError("Incorrect PIN");
+      setTeamSwapPin("");
+      return;
+    }
+
+    setLoading(true);
+    setShowTeamSwapModal(false);
+
+    const teamAPlayerId =
+      teamSwapSource.team === "a" ? teamSwapSource.playerId : teamSwapTarget;
+
+    const teamBPlayerId =
+      teamSwapSource.team === "b" ? teamSwapSource.playerId : teamSwapTarget;
+
+    try {
+      await swapTeamPlayers(
+        currentGame.id,
+        session.id,
+        teamAPlayerId,
+        teamBPlayerId,
+      );
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to swap players");
+      setLoading(false);
+      return;
+    }
+
+    window.location.reload();
+  }
   return (
     <div className="p-6 max-w-5xl mx-auto">
       {/* Header */}
@@ -422,15 +474,22 @@ export default function SessionClient({
                         <div key={id} className="flex items-center gap-2 mb-2">
                           <div
                             className={cn(
-                              "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold",
+                              "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
                               getAvatarColor(player.name),
                             )}
                           >
                             {getInitials(player.name)}
                           </div>
-                          <span className="text-white text-sm">
+                          <span className="text-white text-sm flex-1">
                             {player.name}
                           </span>
+                          <button
+                            onClick={() => initiateTeamSwap(id, "a")}
+                            className="text-gray-600 hover:text-orange-400 transition text-xs p-1 rounded hover:bg-gray-700"
+                            title="Swap to Team B"
+                          >
+                            ⇄
+                          </button>
                         </div>
                       );
                     })}
@@ -448,15 +507,22 @@ export default function SessionClient({
                         <div key={id} className="flex items-center gap-2 mb-2">
                           <div
                             className={cn(
-                              "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold",
+                              "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0",
                               getAvatarColor(player.name),
                             )}
                           >
                             {getInitials(player.name)}
                           </div>
-                          <span className="text-white text-sm">
+                          <span className="text-white text-sm flex-1">
                             {player.name}
                           </span>
+                          <button
+                            onClick={() => initiateTeamSwap(id, "b")}
+                            className="text-gray-600 hover:text-orange-400 transition text-xs p-1 rounded hover:bg-gray-700"
+                            title="Swap to Team A"
+                          >
+                            ⇄
+                          </button>
                         </div>
                       );
                     })}
@@ -778,6 +844,112 @@ export default function SessionClient({
                 className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 rounded-xl transition"
               >
                 {confirmConfig.confirmLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Team Swap Modal */}
+      {showTeamSwapModal && teamSwapSource && currentGame && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-6 z-50">
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold text-white mb-1">
+              Swap Between Teams
+            </h2>
+            <p className="text-gray-400 text-sm mb-5">
+              Swap{" "}
+              <span className="text-orange-400 font-medium">
+                {playerMap.get(teamSwapSource.playerId)?.name}
+              </span>{" "}
+              (Team {teamSwapSource.team.toUpperCase()}) with a player from Team{" "}
+              {teamSwapSource.team === "a" ? "B" : "A"}
+            </p>
+
+            {/* Opposite team players */}
+            <div className="space-y-2 mb-5">
+              {(teamSwapSource.team === "a"
+                ? currentGame.team_b_ids
+                : currentGame.team_a_ids
+              ).map((id) => {
+                const player = playerMap.get(id);
+                if (!player) return null;
+                return (
+                  <button
+                    key={id}
+                    onClick={() => setTeamSwapTarget(id)}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition text-left",
+                      teamSwapTarget === id
+                        ? "bg-orange-950 border-orange-500"
+                        : "bg-gray-800 border-gray-700 hover:border-gray-600",
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0",
+                        getAvatarColor(player.name),
+                      )}
+                    >
+                      {getInitials(player.name)}
+                    </div>
+                    <span className="text-white text-sm flex-1">
+                      {player.name}
+                    </span>
+                    <span className="text-gray-500 text-xs">
+                      Team {teamSwapSource.team === "a" ? "B" : "A"}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* PIN input */}
+            {teamSwapTarget && (
+              <div className="border-t border-gray-800 pt-4 mb-4">
+                <label className="block text-sm text-gray-400 mb-2 text-center">
+                  Enter admin PIN to confirm
+                </label>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={4}
+                  value={teamSwapPin}
+                  onChange={(e) => {
+                    setTeamSwapPin(e.target.value);
+                    setTeamSwapPinError(null);
+                  }}
+                  placeholder="••••"
+                  className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white text-center text-2xl tracking-widest placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  autoFocus
+                />
+                {teamSwapPinError && (
+                  <p className="text-red-400 text-sm text-center mt-2">
+                    {teamSwapPinError}
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowTeamSwapModal(false);
+                  setTeamSwapSource(null);
+                  setTeamSwapTarget(null);
+                }}
+                className="flex-1 bg-gray-800 hover:bg-gray-700 text-white font-medium py-3 rounded-xl transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleTeamSwap}
+                disabled={
+                  !teamSwapTarget || teamSwapPin.length !== 4 || loading
+                }
+                className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-semibold py-3 rounded-xl transition"
+              >
+                {loading ? "Swapping..." : "Confirm Swap"}
               </button>
             </div>
           </div>
