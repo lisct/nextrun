@@ -24,7 +24,6 @@ export async function openSession(gameFormat: number = 4) {
 
   if (error) throw new Error(error.message);
 
-  revalidatePath("/admin/session");
   revalidatePath("/queue");
   return data;
 }
@@ -39,7 +38,7 @@ export async function closeSession(sessionId: string) {
 
   if (error) throw new Error(error.message);
 
-  revalidatePath("/admin/session");
+  revalidatePath("/queue");
 }
 
 export async function generateTeams(sessionId: string) {
@@ -95,11 +94,11 @@ export async function generateTeams(sessionId: string) {
   let teamBIds: string[];
 
   if (winners.length === 0) {
-    const shuffled = [...waitingPlayers]
-      .slice(0, totalNeeded)
-      .sort(() => Math.random() - 0.5);
-    teamAIds = shuffled.slice(0, teamSize).map((e) => e.player_id);
-    teamBIds = shuffled.slice(teamSize).map((e) => e.player_id);
+    // waitingPlayers is already ordered by position ascending (see query
+    // above) — top half goes to Team A, next half to Team B, no shuffling.
+    const topPlayers = waitingPlayers.slice(0, totalNeeded);
+    teamAIds = topPlayers.slice(0, teamSize).map((e) => e.player_id);
+    teamBIds = topPlayers.slice(teamSize).map((e) => e.player_id);
   } else {
     teamAIds = winners.map((e) => e.player_id);
     teamBIds = waitingPlayers.slice(0, teamSize).map((e) => e.player_id);
@@ -125,7 +124,6 @@ export async function generateTeams(sessionId: string) {
     .eq("session_id", sessionId)
     .in("player_id", allPlayingIds);
 
-  revalidatePath("/admin/session");
   revalidatePath("/queue");
   return game;
 }
@@ -191,7 +189,6 @@ export async function markWinner(
     .eq("session_id", sessionId)
     .in("player_id", winnerIds);
 
-  revalidatePath("/admin/session");
   revalidatePath("/queue");
 }
 
@@ -206,7 +203,6 @@ export async function removeFromQueue(sessionId: string, playerId: string) {
 
   if (error) throw new Error(error.message);
 
-  revalidatePath("/admin/session");
   revalidatePath("/queue");
 }
 
@@ -220,7 +216,6 @@ export async function reopenSession(sessionId: string) {
 
   if (error) return { error: error.message };
 
-  revalidatePath("/admin/session");
   revalidatePath("/queue");
   return { error: null };
 }
@@ -251,7 +246,6 @@ export async function startNewSession(gameFormat: number = 4) {
 
   if (error) throw new Error(error.message);
 
-  revalidatePath("/admin/session");
   revalidatePath("/queue");
   return data;
 }
@@ -308,7 +302,6 @@ export async function swapPlayers(
     }
   }
 
-  revalidatePath("/admin/session");
   revalidatePath("/queue");
 }
 
@@ -348,6 +341,5 @@ export async function swapTeamPlayers(
 
   if (updateError) throw new Error(updateError.message);
 
-  revalidatePath("/admin/session");
   revalidatePath("/queue");
 }

@@ -40,7 +40,7 @@ export async function proxy(request: NextRequest) {
 
   if (isLoginPage && user) {
     const url = request.nextUrl.clone();
-    url.pathname = "/admin/session";
+    url.pathname = "/queue";
     return NextResponse.redirect(url);
   }
 

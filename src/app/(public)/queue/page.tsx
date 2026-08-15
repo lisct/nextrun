@@ -1,8 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
-import QueueClient from "@/components/queue/QueueClient";
+import NextRunApp from "./NextRunApp";
+
+export const dynamic = "force-dynamic";
 
 export default async function QueuePage() {
   const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const isAdmin = !!user;
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -31,11 +38,23 @@ export default async function QueuePage() {
         .order("position", { ascending: true })
     : { data: null };
 
+  // Get the active (unfinished) game for today's session, if any
+  const { data: currentGame } = session
+    ? await supabase
+        .from("games")
+        .select("*")
+        .eq("session_id", session.id)
+        .is("winner", null)
+        .maybeSingle()
+    : { data: null };
+
   return (
-    <QueueClient
-      session={session}
-      players={players ?? []}
+    <NextRunApp
+      initialSession={session}
+      initialPlayers={players ?? []}
       initialQueue={queue ?? []}
+      initialGame={currentGame ?? null}
+      initialIsAdmin={isAdmin}
     />
   );
 }

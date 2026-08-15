@@ -1,16 +1,18 @@
 "use client";
 
+import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { usePendingSync } from "@/lib/offline/hooks";
+import { syncToSupabase } from "@/lib/offline/sync";
 
 interface AdminNavProps {
   userEmail: string;
 }
 
 const links = [
-  { href: "/admin/session", label: "Session", icon: "🏀" },
   { href: "/admin/players", label: "Players", icon: "👥" },
   { href: "/admin/payments", label: "Payments", icon: "💰" },
 ];
@@ -19,11 +21,26 @@ export default function AdminNav({ userEmail }: AdminNavProps) {
   const router = useRouter();
   const pathname = usePathname();
   const supabase = createClient();
+  const pendingCount = usePendingSync();
+  const [syncing, setSyncing] = useState(false);
+  const [justSynced, setJustSynced] = useState(false);
 
   async function handleLogout() {
     await supabase.auth.signOut();
     router.push("/login");
     router.refresh();
+  }
+
+  async function handleSyncNow() {
+    setSyncing(true);
+    try {
+      await syncToSupabase();
+      setJustSynced(true);
+      router.refresh();
+      setTimeout(() => setJustSynced(false), 2000);
+    } finally {
+      setSyncing(false);
+    }
   }
 
   return (
@@ -79,6 +96,28 @@ export default function AdminNav({ userEmail }: AdminNavProps) {
           Leaderboard
         </Link>
       </div>
+
+      {/* Sync now */}
+      {(pendingCount > 0 || justSynced) && (
+        <div className="p-3 border-t border-gray-800">
+          <button
+            onClick={handleSyncNow}
+            disabled={syncing || pendingCount === 0}
+            className={cn(
+              "w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-60",
+              justSynced
+                ? "bg-green-500 text-white"
+                : "bg-amber-500 hover:bg-amber-600 text-white",
+            )}
+          >
+            {justSynced
+              ? "✓ Synced"
+              : syncing
+                ? "Syncing..."
+                : `Sync ${pendingCount} change${pendingCount === 1 ? "" : "s"}`}
+          </button>
+        </div>
+      )}
 
       {/* User + logout */}
       <div className="p-4 border-t border-gray-800">

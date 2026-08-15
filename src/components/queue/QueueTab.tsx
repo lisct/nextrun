@@ -1,29 +1,45 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Session, Player, QueueEntry, PaymentPlan } from "@/types";
 import { cn, getInitials } from "@/lib/utils";
-export const dynamic = "force-dynamic";
-import { createClient } from "@/lib/supabase/client";
 import {
   joinQueue,
   registerAndJoin,
   removePlayerFromQueue,
 } from "@/app/(public)/queue/actions";
+import {
+  localQueue,
+  localPlayers,
+  localSyncQueue,
+  type SyncAction,
+} from "@/lib/offline/store";
 
-interface QueueClientProps {
+interface QueueTabProps {
   session: Session | null;
+  queue: QueueEntry[];
+  setQueue: (queue: QueueEntry[]) => void;
   players: Player[];
-  initialQueue: QueueEntry[];
+  setPlayers: (players: Player[]) => void;
+  isOnline: boolean;
+  pendingSync: number;
+  syncing: boolean;
+  refreshLocalStore: () => void;
+  reconcileFromServer: (sessionId: string) => Promise<void>;
 }
 
-export default function QueueClient({
+export default function QueueTab({
   session,
-  players: initialPlayers,
-  initialQueue,
-}: QueueClientProps) {
-  const [queue, setQueue] = useState<QueueEntry[]>(initialQueue);
-  const [players, setPlayers] = useState<Player[]>(initialPlayers);
+  queue,
+  setQueue,
+  players,
+  setPlayers,
+  isOnline,
+  pendingSync,
+  syncing,
+  refreshLocalStore,
+  reconcileFromServer,
+}: QueueTabProps) {
   const [search, setSearch] = useState("");
   const [showNewPlayer, setShowNewPlayer] = useState(false);
   const [loading, setLoading] = useState<string | null>(null);
@@ -37,72 +53,6 @@ export default function QueueClient({
   const [newName, setNewName] = useState("");
   const [newPhone, setNewPhone] = useState("");
   const [newPlan, setNewPlan] = useState<PaymentPlan>("per_session");
-
-  // Fast polling when no session — checks every 2 seconds
-  useEffect(() => {
-    const supabaseClient = createClient();
-
-    // Realtime for queue and game changes
-    const channel = supabaseClient
-      .channel("all-changes")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "sessions",
-        },
-        () => {
-          window.location.reload();
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "queue_entries",
-        },
-        () => {
-          window.location.reload();
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "games",
-        },
-        () => {
-          window.location.reload();
-        },
-      )
-      .subscribe((status) => {
-        console.log("Realtime status:", status);
-      });
-
-    // Fallback polling every 3 seconds
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch("/api/session");
-        const { session: latestSession } = await res.json();
-        if (latestSession?.status !== session?.status) {
-          window.location.reload();
-        }
-        if (!session && latestSession) {
-          window.location.reload();
-        }
-      } catch {
-        // ignore
-      }
-    }, 3000);
-
-    return () => {
-      supabaseClient.removeChannel(channel);
-      clearInterval(interval);
-    };
-  }, [session]);
 
   const queuePlayerIds = new Set(queue.map((e) => e.player_id));
 
@@ -130,14 +80,62 @@ export default function QueueClient({
     setLoading(player.id);
     setError(null);
 
-    try {
-      const entry = await joinQueue(session.id, player.id);
-      setQueue((prev) => [...prev, { ...entry, player }]);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to join queue");
-    } finally {
-      setLoading(null);
+    // Online actions never touch the sync queue — they either land directly
+    // (using the server's response as the source of truth) or, if the
+    // direct call fails, fall through to the offline path below. That path
+    // is the ONLY thing that ever writes to localSyncQueue, so a
+    // successfully-synced-online action can never also be replayed by a
+    // later sync pass.
+    if (isOnline) {
+      try {
+        const entry = await joinQueue(session.id, player.id);
+        const updatedQueue = [...queue, { ...entry, player }];
+        setQueue(updatedQueue);
+        localQueue.set(updatedQueue);
+        refreshLocalStore();
+        setLoading(null);
+        return;
+      } catch {
+        // Direct call failed even though we thought we were online — fall
+        // through to the offline path so the join isn't lost.
+      }
     }
+
+    const entryId = crypto.randomUUID();
+    const nextPosition =
+      queue.length > 0
+        ? Math.max(...queue.map((e) => e.position)) + 1
+        : 1;
+    const optimisticEntry: QueueEntry = {
+      id: entryId,
+      session_id: session.id,
+      player_id: player.id,
+      position: nextPosition,
+      status: "waiting",
+      joined_at: new Date().toISOString(),
+      player,
+    };
+
+    const updatedQueue = [...queue, optimisticEntry];
+    setQueue(updatedQueue);
+    localQueue.set(updatedQueue);
+
+    const action: SyncAction = {
+      id: crypto.randomUUID(),
+      type: "JOIN_QUEUE",
+      createdAt: new Date().toISOString(),
+      retryCount: 0,
+      payload: {
+        entryId,
+        sessionId: session.id,
+        playerId: player.id,
+        position: optimisticEntry.position,
+      },
+    };
+    localSyncQueue.push(action);
+    refreshLocalStore();
+
+    setLoading(null);
   }
 
   async function handleRegisterAndJoin() {
@@ -146,28 +144,101 @@ export default function QueueClient({
     setLoading("new");
     setError(null);
 
-    try {
-      const { player, entry } = await registerAndJoin(
-        session.id,
-        newName,
-        newPhone || null,
-        newPlan,
-      );
-      setPlayers((prev) =>
-        [...prev, player].sort((a, b) => a.name.localeCompare(b.name)),
-      );
-      setQueue((prev) => [...prev, { ...entry, player }]);
-      setShowNewPlayer(false);
-      setNewName("");
-      setNewPhone("");
-      setNewPlan("per_session");
-    } catch (err: unknown) {
-      setError(
-        err instanceof Error ? err.message : "Failed to register player",
-      );
-    } finally {
-      setLoading(null);
+    const trimmedName = newName.trim();
+    const trimmedPhone = newPhone.trim();
+    const plan = newPlan;
+
+    if (isOnline) {
+      try {
+        const { player, entry } = await registerAndJoin(
+          session.id,
+          trimmedName,
+          trimmedPhone || null,
+          plan,
+        );
+        const updatedPlayers = [...players, player].sort((a, b) =>
+          a.name.localeCompare(b.name),
+        );
+        const updatedQueue = [...queue, { ...entry, player }];
+        setPlayers(updatedPlayers);
+        setQueue(updatedQueue);
+        localPlayers.set(updatedPlayers);
+        localQueue.set(updatedQueue);
+        refreshLocalStore();
+
+        setShowNewPlayer(false);
+        setNewName("");
+        setNewPhone("");
+        setNewPlan("per_session");
+        setLoading(null);
+        return;
+      } catch {
+        // Direct call failed even though we thought we were online — fall
+        // through to the offline path so registration isn't lost.
+      }
     }
+
+    const playerId = crypto.randomUUID();
+    const entryId = crypto.randomUUID();
+
+    const newPlayer: Player = {
+      id: playerId,
+      name: trimmedName,
+      phone: trimmedPhone || null,
+      payment_plan: plan,
+      is_active: true,
+      created_at: new Date().toISOString(),
+    };
+    const nextPosition =
+      queue.length > 0
+        ? Math.max(...queue.map((e) => e.position)) + 1
+        : 1;
+    const optimisticEntry: QueueEntry = {
+      id: entryId,
+      session_id: session.id,
+      player_id: playerId,
+      position: nextPosition,
+      status: "waiting",
+      joined_at: new Date().toISOString(),
+      player: newPlayer,
+    };
+
+    const updatedPlayers = [...players, newPlayer].sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
+    const updatedQueue = [...queue, optimisticEntry];
+    setPlayers(updatedPlayers);
+    setQueue(updatedQueue);
+    localPlayers.set(updatedPlayers);
+    localQueue.set(updatedQueue);
+
+    localSyncQueue.push({
+      id: crypto.randomUUID(),
+      type: "REGISTER_PLAYER",
+      createdAt: new Date().toISOString(),
+      retryCount: 0,
+      payload: { player: newPlayer },
+    });
+    localSyncQueue.push({
+      id: crypto.randomUUID(),
+      type: "JOIN_QUEUE",
+      createdAt: new Date().toISOString(),
+      retryCount: 0,
+      payload: {
+        entryId,
+        sessionId: session.id,
+        playerId,
+        position: optimisticEntry.position,
+      },
+    });
+    refreshLocalStore();
+
+    setShowNewPlayer(false);
+    setNewName("");
+    setNewPhone("");
+    setNewPlan("per_session");
+
+    setLoading(null);
   }
 
   function initiateRemove(entry: QueueEntry) {
@@ -190,22 +261,41 @@ export default function QueueClient({
 
     setShowPinModal(false);
 
-    try {
-      await removePlayerFromQueue(session.id, playerToRemove.player_id);
-    } catch (err: unknown) {
-      setPinError(
-        err instanceof Error ? err.message : "Failed to remove player",
-      );
-      return;
+    const entryToRemove = playerToRemove;
+    setPlayerToRemove(null);
+
+    if (isOnline) {
+      try {
+        await removePlayerFromQueue(session.id, entryToRemove.player_id);
+        // removePlayerFromQueue can promote/swap players server-side —
+        // pull the reconciled state rather than guessing at it locally.
+        // This also keeps the Session tab's game view in sync.
+        await reconcileFromServer(session.id);
+        return;
+      } catch {
+        // Direct call failed even though we thought we were online — fall
+        // through to the offline path so the removal isn't lost.
+      }
     }
 
-    window.location.reload();
+    const updatedQueue = queue.filter((e) => e.id !== entryToRemove.id);
+    setQueue(updatedQueue);
+    localQueue.set(updatedQueue);
+
+    localSyncQueue.push({
+      id: crypto.randomUUID(),
+      type: "LEAVE_QUEUE",
+      createdAt: new Date().toISOString(),
+      retryCount: 0,
+      payload: { queueEntryId: entryToRemove.id },
+    });
+    refreshLocalStore();
   }
 
   // Session closed
   if (session?.status === "closed") {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center p-8">
+      <div className="h-full flex items-center justify-center p-8">
         <div className="text-center">
           <div className="text-6xl mb-4">🏀</div>
           <h1 className="text-3xl font-bold text-white mb-2">That&apos;s a wrap!</h1>
@@ -220,7 +310,7 @@ export default function QueueClient({
   // No session open
   if (!session || session.status !== "open") {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center p-8">
+      <div className="h-full flex items-center justify-center p-8">
         <div className="text-center">
           <div className="text-6xl mb-4">🏀</div>
           <h1 className="text-3xl font-bold text-white mb-2">NextRun</h1>
@@ -233,9 +323,9 @@ export default function QueueClient({
   }
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="bg-gray-900 border-b border-gray-800 px-6 py-4 flex items-center justify-between">
+      <div className="bg-gray-900 border-b border-gray-800 px-6 py-4 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
           <span className="text-3xl">🏀</span>
           <div>
@@ -245,13 +335,38 @@ export default function QueueClient({
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-          <span className="text-green-400 text-sm font-medium">Live</span>
+        <div className="flex items-center gap-3">
+          {pendingSync > 0 && (
+            <span className="text-xs font-medium text-amber-400 bg-amber-950 border border-amber-800 rounded-full px-3 py-1">
+              {pendingSync} change{pendingSync === 1 ? "" : "s"} pending sync
+            </span>
+          )}
+          <div className="flex items-center gap-2">
+            {!isOnline ? (
+              <>
+                <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                <span className="text-red-400 text-sm font-medium">
+                  Offline — changes saved locally
+                </span>
+              </>
+            ) : syncing ? (
+              <>
+                <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></div>
+                <span className="text-yellow-400 text-sm font-medium">
+                  Syncing...
+                </span>
+              </>
+            ) : (
+              <>
+                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                <span className="text-green-400 text-sm font-medium">Live</span>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="flex h-[calc(100vh-73px)]">
+      <div className="flex flex-1 min-h-0">
         {/* Left — Player grid */}
         <div className="w-1/2 border-r border-gray-800 flex flex-col">
           <div className="p-4 border-b border-gray-800">

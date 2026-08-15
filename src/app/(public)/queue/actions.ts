@@ -14,7 +14,7 @@ export async function joinQueue(sessionId: string, playerId: string) {
     .eq("session_id", sessionId)
     .order("position", { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   const position = (maxPos?.position ?? 0) + 1;
 
@@ -64,7 +64,7 @@ export async function registerAndJoin(
     .eq("session_id", sessionId)
     .order("position", { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   const position = (maxPos?.position ?? 0) + 1;
 
@@ -168,5 +168,4 @@ export async function removePlayerFromQueue(
   }
 
   revalidatePath("/queue");
-  revalidatePath("/admin/session");
 }

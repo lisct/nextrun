@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
+import OfflineBanner from "@/components/ui/OfflineBanner";
 import "./globals.css";
 
 const geist = Geist({
@@ -35,7 +36,13 @@ export default function RootLayout({
       className={`${geist.variable} h-full antialiased`}
       suppressHydrationWarning
     >
-      <body className="min-h-full bg-gray-950 text-white">{children}</body>
+      <body
+        className="min-h-full bg-gray-950 text-white"
+        suppressHydrationWarning
+      >
+        <OfflineBanner />
+        {children}
+      </body>
     </html>
   );
 }
